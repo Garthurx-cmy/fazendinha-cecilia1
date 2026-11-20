@@ -11,7 +11,6 @@ import { firebaseConfig } from './firebase-config.js';
 const $ = (id) => document.getElementById(id);
 const screens = ['home','cameraScreen','previewScreen','galleryScreen'];
 const video = $('video');
-const videoBackdrop = $('videoBackdrop');
 const PHOTOS_PATH = 'events/cecilia-1-aninho/photos';
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 let stream = null;
@@ -19,6 +18,8 @@ let facingMode = 'user';
 let timerEnabled = true;
 let currentPhoto = null;
 let currentPhotoUrl = null;
+let localSavedForCurrentPhoto = false;
+let cloudSavedForCurrentPhoto = false;
 let firebaseReady = false;
 let authUser = null;
 let authReadyPromise;
@@ -110,14 +111,10 @@ async function startCamera() {
       audio: false,
       video: {
         facingMode: { ideal: facingMode },
-        width: { ideal: 1080 },
-        height: { ideal: 1920 }
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
       }
     });
-
-    // Usa o menor zoom disponibilizado pelo aparelho. No Safari/iPhone,
-    // quando o navegador não oferece controle de zoom, a composição abaixo
-    // ainda mostra o quadro inteiro da câmera, sem recortar a pessoa.
     const cameraTrack = stream.getVideoTracks()[0];
     try {
       const capabilities = cameraTrack?.getCapabilities?.();
@@ -125,114 +122,129 @@ async function startCamera() {
         await cameraTrack.applyConstraints({ advanced: [{ zoom: capabilities.zoom.min }] });
       }
     } catch (zoomError) {
-      console.warn('Controle de zoom não disponível neste aparelho:', zoomError);
+      console.info('Zoom óptico no controlável pelo navegador; mantendo o enquadramento nativo:', zoomError);
     }
-
     video.srcObject = stream;
-    videoBackdrop.srcObject = stream;
     video.classList.toggle('mirrored', facingMode === 'user');
-    videoBackdrop.classList.toggle('mirrored', facingMode === 'user');
-    await Promise.all([video.play(), videoBackdrop.play()]);
+    await video.play();
     $('cameraPlaceholder').hidden = true;
-    setMessage('cameraMessage', 'Enquadramento aberto: você verá mais da pessoa e do ambiente.');
+    setMessage('cameraMessage', 'Enquadramento amplo ativado. A prévia mostra a mesma área que sairá na foto.');
   } catch (error) {
     $('cameraPlaceholder').hidden = false;
-    setMessage('cameraMessage', error.name === 'NotAllowedError' ? 'Permita o acesso à câmera nas configurações do navegador.' : 'Não foi possível abrir a câmera. Verifique se ela está sendo usada por outro aplicativo.');
+    setMessage('cameraMessage', error.name === 'NotAllowedError'
+      ? 'Permita o acesso à câmera nas configurações do navegador.'
+      : 'Não foi possível abrir a câmera. Verifique se ela está sendo usada por outro aplicativo.');
   }
 }
 function stopCamera() {
   if (stream) { stream.getTracks().forEach((track) => track.stop()); stream = null; }
   video.srcObject = null;
-  videoBackdrop.srcObject = null;
 }
 function makeComposite() {
   const width = 941, height = 1672;
   const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const frame = new Image();
+  const frameUrl = 'assets/moldura-cecilia-nova.png';
 
-  // Abertura transparente da moldura atual. A imagem inteira da câmera
-  // aparece centralizada; as laterais recebem o mesmo ambiente desfocado,
-  // evitando faixas pretas e reduzindo o efeito de zoom/corte.
-  const x = 58, y = 249, photoWidth = 817, photoHeight = 894;
-  const vw = video.videoWidth || 720, vh = video.videoHeight || 1280;
+  // Abertura transparente da NOVA moldura (941 x 1672).
+  // A imagem ocupa toda a abertura, sem fundo duplicado/desfocado ou faixas.
+  const opening = { x: 67, y: 260, width: 808, height: 715 };
+  const vw = video.videoWidth || 1080;
+  const vh = video.videoHeight || 1920;
+  const targetRatio = opening.width / opening.height;
   const sourceRatio = vw / vh;
-  const targetRatio = photoWidth / photoHeight;
+  let sx = 0, sy = 0, sw = vw, sh = vh;
 
+  // object-fit: cover: preenche o retângulo inteiro mantendo proporção.
+  if (sourceRatio > targetRatio) {
+    sw = vh * targetRatio;
+    sx = (vw - sw) / 2;
+  } else {
+    sh = vw / targetRatio;
+    sy = (vh - sh) / 2;
+  }
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x, y, photoWidth, photoHeight);
+  ctx.rect(opening.x, opening.y, opening.width, opening.height);
   ctx.clip();
+
   if (facingMode === 'user') {
-    ctx.translate(x + photoWidth, 0);
+    // Espelha a câmera frontal como no preview do iPhone.
+    ctx.translate(opening.x + opening.width, opening.y);
     ctx.scale(-1, 1);
-  }
-
-  // Fundo preenchido com a própria câmera, desfocado: não cria barras pretas.
-  let coverW = vw, coverH = vh, coverX = 0, coverY = 0;
-  if (sourceRatio > targetRatio) {
-    coverW = vh * targetRatio;
-    coverX = (vw - coverW) / 2;
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, opening.width, opening.height);
   } else {
-    coverH = vw / targetRatio;
-    coverY = (vh - coverH) / 2;
+    ctx.drawImage(video, sx, sy, sw, sh, opening.x, opening.y, opening.width, opening.height);
   }
-  ctx.filter = 'blur(22px) brightness(0.82)';
-  ctx.drawImage(video, coverX, coverY, coverW, coverH, facingMode === 'user' ? 0 : x, y, photoWidth, photoHeight);
-
-  // Foto principal sem corte: mostra a pessoa e mais do ambiente ao redor.
-  const fitScale = Math.min(photoWidth / vw, photoHeight / vh);
-  const fitW = vw * fitScale;
-  const fitH = vh * fitScale;
-  const fitX = (photoWidth - fitW) / 2;
-  const fitY = y + (photoHeight - fitH) / 2;
-  ctx.filter = 'none';
-  ctx.drawImage(video, 0, 0, vw, vh, facingMode === 'user' ? fitX : x + fitX, fitY, fitW, fitH);
   ctx.restore();
 
   return new Promise((resolve, reject) => {
-    const frame = new Image();
     frame.onload = () => {
       ctx.drawImage(frame, 0, 0, width, height);
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Falha ao gerar JPEG')), 'image/jpeg', 0.90);
+      canvas.toBlob((blob) => blob
+        ? resolve(blob)
+        : reject(new Error('Falha ao gerar a fotografia final.')), 'image/jpeg', 0.92);
     };
-    frame.onerror = () => reject(new Error('Não foi possível carregar a moldura'));
-    frame.src = 'assets/moldura-fazendinha-cecilia.png';
+    frame.onerror = () => reject(new Error('A nova moldura não foi encontrada. Confira o arquivo assets/moldura-cecilia-nova.png no GitHub.'));
+    frame.src = frameUrl;
   });
 }
-
 async function capture() {
-  if (!stream) { setMessage('cameraMessage', 'Primeiro, permita o acesso à câmera.'); return; }
+  if (!stream) {
+    setMessage('cameraMessage', 'Primeiro, permita o acesso à câmera.');
+    return;
+  }
   $('captureBtn').disabled = true;
   try {
     if (timerEnabled) {
       for (let number = 3; number > 0; number--) {
-        $('countdown').hidden = false; $('countdown').textContent = number;
+        $('countdown').hidden = false;
+        $('countdown').textContent = number;
         await new Promise((resolve) => setTimeout(resolve, 750));
       }
       $('countdown').hidden = true;
     }
     currentPhoto = await makeComposite();
-    $('saveBtn').disabled = false;
-    $('saveBtn').textContent = 'Enviar para galeria';
+    localSavedForCurrentPhoto = false;
+    cloudSavedForCurrentPhoto = false;
     if (currentPhotoUrl) URL.revokeObjectURL(currentPhotoUrl);
     currentPhotoUrl = URL.createObjectURL(currentPhoto);
     $('previewImage').src = currentPhotoUrl;
-    setMessage('previewMessage', 'Sua lembrança está pronta! Baixe, compartilhe ou envie para a galeria da festa.');
+    $('saveBtn').disabled = true;
+    $('saveBtn').textContent = 'Enviando para a galeria...';
+    setMessage('previewMessage', 'Foto pronta! Estamos salvando uma cópia local e enviando a lembrança para a galeria da festa.');
     showScreen('previewScreen');
+    // O envio começa automaticamente após a captura. Se falhar, aparece a opção de tentar novamente.
+    saveCapturedPhoto();
   } catch (error) {
-    console.error(error); setMessage('cameraMessage', 'Não foi possível criar a foto. Tente novamente.');
-  } finally { $('captureBtn').disabled = false; }
+    console.error(error);
+    setMessage('cameraMessage', error.message || 'Não foi possível criar a foto. Tente novamente.');
+  } finally {
+    $('captureBtn').disabled = false;
+  }
 }
 async function uploadPhotoToCloud(blob) {
   const user = await authReadyPromise;
-  if (!user || !firebaseReady) throw new Error('A conexão com a galeria online não está disponível.');
+  if (!user || !firebaseReady) throw new Error('Não foi possível autenticar o convidado no Firebase. Confira Authentication > Sign-in method > Anonymous.');
   if (blob.size > MAX_PHOTO_BYTES) throw new Error('A foto ultrapassou o limite de 8 MB.');
+
   const photoId = makePhotoId();
   const storagePath = `${PHOTOS_PATH}/${photoId}.jpg`;
   const fileRef = ref(storage, storagePath);
-  await uploadBytes(fileRef, blob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=3600' });
+
+  // Primeiro confirma o arquivo no Storage; depois grava o registro que alimenta a galeria.
+  await uploadBytes(fileRef, blob, {
+    contentType: 'image/jpeg',
+    cacheControl: 'public,max-age=3600'
+  });
   const downloadURL = await getDownloadURL(fileRef);
+
   try {
     await addDoc(collection(db, PHOTOS_PATH), {
       storagePath,
@@ -242,11 +254,40 @@ async function uploadPhotoToCloud(blob) {
       sizeBytes: blob.size
     });
   } catch (error) {
-    console.error('Falha ao registrar metadados; removendo arquivo órfão:', error);
-    // O arquivo não deve ficar órfão se a gravação dos metadados falhar.
+    console.error('O arquivo foi enviado, mas o registro da galeria falhou:', error);
     const { deleteObject } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js');
     await deleteObject(fileRef).catch(() => {});
-    throw error;
+    throw new Error('A foto chegou ao armazenamento, mas o Firebase não autorizou o registro na galeria. Publique as regras do Firestore e tente novamente.');
+  }
+}
+
+async function saveCapturedPhoto() {
+  if (!currentPhoto || cloudSavedForCurrentPhoto) return;
+  $('saveBtn').disabled = true;
+  $('saveBtn').textContent = 'Enviando para a galeria...';
+  setMessage('previewMessage', 'Salvando sua foto na galeria da festa...');
+
+  if (!localSavedForCurrentPhoto) {
+    try {
+      await savePhotoLocally(currentPhoto);
+      localSavedForCurrentPhoto = true;
+    } catch (error) {
+      console.warn('Não foi possível manter a cópia local neste aparelho:', error);
+    }
+  }
+
+  try {
+    await uploadPhotoToCloud(currentPhoto);
+    cloudSavedForCurrentPhoto = true;
+    $('saveBtn').textContent = '✓ Salva na galeria';
+    $('saveBtn').disabled = true;
+    setMessage('previewMessage', 'Foto salva na galeria da festa! Os convidados já podem visualizar e baixar. 🌻');
+    await updateCount();
+  } catch (error) {
+    console.error('Falha no envio automático:', error);
+    $('saveBtn').textContent = '↻ Tentar enviar novamente';
+    $('saveBtn').disabled = false;
+    setMessage('previewMessage', `${error.message || 'Não foi possível enviar a foto.'} A imagem continua disponível para baixar neste aparelho.`);
   }
 }
 async function renderGallery() {
@@ -296,23 +337,7 @@ $('galleryFromCamera').onclick = async () => { stopCamera(); showScreen('gallery
 $('backToCameraBtn').onclick = () => { showScreen('cameraScreen'); startCamera(); };
 $('retakeBtn').onclick = () => { showScreen('cameraScreen'); startCamera(); };
 $('downloadBtn').onclick = () => { if (currentPhoto) downloadBlob(currentPhoto, 'foto-fazendinha-da-cecilia.jpg'); };
-$('saveBtn').onclick = async () => {
-  if (!currentPhoto) return;
-  $('saveBtn').disabled = true;
-  setMessage('previewMessage', 'Enviando sua fotografia para a galeria da festa...');
-  try {
-    await uploadPhotoToCloud(currentPhoto);
-    await savePhotoLocally(currentPhoto).catch((error) => console.warn('Cópia local não salva:', error));
-    setMessage('previewMessage', 'Foto enviada para a galeria coletiva! 🌻 Obrigado por participar!');
-    $('saveBtn').textContent = '✓ Enviada para a galeria';
-    await updateCount();
-    $('saveBtn').disabled = true;
-  } catch (error) {
-    console.error(error);
-    setMessage('previewMessage', error.message || 'Não foi possível enviar a foto. Tente novamente ou baixe a imagem.');
-    $('saveBtn').disabled = false;
-  }
-};
+$('saveBtn').onclick = saveCapturedPhoto;
 $('shareBtn').onclick = async () => {
   if (!currentPhoto) return;
   const file = new File([currentPhoto], 'foto-fazendinha-da-cecilia.jpg', { type: 'image/jpeg' });
