@@ -5,7 +5,9 @@
 - Cloud Firestore para metadados das fotografias.
 - Cloud Storage para arquivos JPEG.
 - Galeria pública: leitura liberada sem cadastro.
-- Envio: exige sessão autenticada anonimamente.
+- Envio automático após a captura: exige sessão autenticada anonimamente.
+- A fotografia final é composta com `assets/moldura-cecilia-nova.png`, preenchendo a abertura da moldura sem fundo desfocado nem faixas duplicadas.
+- Se o envio falhar, a tela mantém a opção de tentar novamente e permite baixar a foto localmente.
 - Alteração e exclusão: bloqueadas pelas regras desta versão.
 
 ## Caminhos utilizados
@@ -32,11 +34,13 @@ As regras permitem leitura pública, criação de fotos com autenticação anôn
 
 ## Testes antes de divulgar o QR Code
 1. Abrir a URL HTTPS no Android e no iPhone e autorizar a câmera.
-2. Tirar uma foto e clicar em “Enviar para galeria”.
+2. Tirar uma foto; o aplicativo salva uma cópia local e inicia automaticamente o envio ao Storage e o registro no Firestore.
 3. Abrir a galeria em outro navegador/dispositivo e confirmar a foto.
 4. Confirmar no Firebase Storage que o JPEG foi armazenado e no Firestore que os metadados foram registrados.
 5. Verificar que não é possível alterar ou excluir fotos como convidado.
-6. Monitorar faturamento e tráfego: alertas de orçamento não são limites rígidos de cobrança.
+6. Em Authentication > Settings > Authorized domains, adicionar o domínio exato do site Netlify publicado. Sem essa autorização, o login anônimo pode falhar e bloquear o envio.
+7. Confirmar em Authentication > Sign-in method que o provedor Anonymous está habilitado.
+8. Monitorar faturamento e tráfego: alertas de orçamento não são limites rígidos de cobrança.
 
 ## Limites
 - JPEG até 8 MB por fotografia.
