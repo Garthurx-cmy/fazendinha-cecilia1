@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
-  getFirestore, collection, doc, setDoc, getDocs, query, orderBy, serverTimestamp, Timestamp
+  getFirestore, collection, doc, setDoc, getDocs, query, onSnapshot, serverTimestamp, Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import {
   getStorage, ref, uploadBytes, getDownloadURL
@@ -15,13 +15,13 @@ const PHOTOS_PATH = 'events/cecilia-1-aninho/photos';
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 let stream = null;
 let facingMode = 'user';
-let timerEnabled = true;
 let currentPhoto = null;
 let currentPhotoUrl = null;
 let localSavedForCurrentPhoto = false;
 let cloudSavedForCurrentPhoto = false;
 let firebaseReady = false;
 let authUser = null;
+let galleryUnsubscribe = null;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -206,14 +206,6 @@ async function capture() {
   }
   $('captureBtn').disabled = true;
   try {
-    if (timerEnabled) {
-      for (let number = 3; number > 0; number--) {
-        $('countdown').hidden = false;
-        $('countdown').textContent = number;
-        await new Promise((resolve) => setTimeout(resolve, 750));
-      }
-      $('countdown').hidden = true;
-    }
     currentPhoto = await makeComposite();
     localSavedForCurrentPhoto = false;
     cloudSavedForCurrentPhoto = false;
@@ -301,33 +293,82 @@ async function renderGallery() {
   const grid = $('galleryGrid');
   grid.innerHTML = '';
   $('emptyGallery').hidden = true;
-  setMessage('galleryMessage', 'Carregando as lembranças da festa...');
-  try {
-    const photosQuery = query(collection(db, PHOTOS_PATH), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(photosQuery);
-    const items = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    setMessage('galleryMessage', `${items.length} fotografia(s) compartilhada(s) na galeria.`);
-    $('emptyGallery').hidden = items.length > 0;
-    for (const item of items) {
-      if (!item.downloadURL) continue;
-      const card = document.createElement('article'); card.className = 'gallery-card';
-      const img = document.createElement('img'); img.src = item.downloadURL; img.alt = 'Foto da festa'; img.loading = 'lazy';
-      const btn = document.createElement('button'); btn.textContent = '⬇ Baixar';
-      btn.onclick = async () => {
-        try {
-          const response = await fetch(item.downloadURL);
-          if (!response.ok) throw new Error('Download indisponível');
-          downloadBlob(await response.blob(), `cecilia-${item.id}.jpg`);
-        } catch (error) { window.open(item.downloadURL, '_blank', 'noopener'); }
-      };
-      card.append(img, btn); grid.append(card);
-    }
-    $('photoCount').textContent = `(${items.length} na galeria)`;
-  } catch (error) {
-    console.error('Erro ao carregar galeria:', error);
-    setMessage('galleryMessage', 'Não foi possível carregar a galeria. Confira a conexão e as regras do Firebase.');
-    $('emptyGallery').hidden = false;
+  setMessage('galleryMessage', 'Carregando as lembranças compartilhadas da festa...');
+
+  // Evita listeners duplicados; a nova assinatura atualiza a galeria em todos os aparelhos.
+  if (galleryUnsubscribe) {
+    galleryUnsubscribe();
+    galleryUnsubscribe = null;
   }
+
+  const photosQuery = query(collection(db, PHOTOS_PATH));
+  return new Promise((resolve) => {
+    let firstSnapshot = true;
+    galleryUnsubscribe = onSnapshot(photosQuery, (snapshot) => {
+      const items = snapshot.docs
+        .map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }))
+        .filter((item) => Boolean(item.downloadURL))
+        .sort((a, b) => {
+          const timeA = a.createdAt?.toMillis?.() ?? a.capturedAt?.toMillis?.() ?? 0;
+          const timeB = b.createdAt?.toMillis?.() ?? b.capturedAt?.toMillis?.() ?? 0;
+          return timeB - timeA;
+        });
+
+      grid.innerHTML = '';
+      for (const item of items) {
+        const card = document.createElement('article');
+        card.className = 'gallery-card';
+
+        const img = document.createElement('img');
+        img.src = item.downloadURL;
+        img.alt = 'Foto compartilhada da festa da Cecília';
+        img.loading = 'lazy';
+        img.onerror = () => {
+          img.alt = 'Não foi possível carregar esta fotografia';
+          card.classList.add('gallery-card-error');
+        };
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = '⬇ Baixar foto';
+        btn.onclick = async () => {
+          try {
+            const response = await fetch(item.downloadURL);
+            if (!response.ok) throw new Error('Download indisponível');
+            downloadBlob(await response.blob(), `cecilia-${item.id}.jpg`);
+          } catch (error) {
+            // O link de download do Firebase também pode ser aberto diretamente.
+            window.open(item.downloadURL, '_blank', 'noopener');
+          }
+        };
+
+        card.append(img, btn);
+        grid.append(card);
+      }
+
+      $('photoCount').textContent = `(${items.length} na galeria)`;
+      $('emptyGallery').hidden = items.length > 0;
+      setMessage(
+        'galleryMessage',
+        items.length
+          ? `${items.length} fotografia(s) compartilhada(s) por todos os convidados.`
+          : 'A galeria ainda está vazia. Tire a primeira foto para começar!'
+      );
+
+      if (firstSnapshot) {
+        firstSnapshot = false;
+        resolve();
+      }
+    }, (error) => {
+      console.error('Erro ao acompanhar a galeria compartilhada:', error);
+      setMessage('galleryMessage', 'Não foi possível carregar as fotos compartilhadas. Verifique as regras de leitura do Firestore e do Storage.');
+      $('emptyGallery').hidden = false;
+      if (firstSnapshot) {
+        firstSnapshot = false;
+        resolve();
+      }
+    });
+  });
 }
 function downloadBlob(blob, name) {
   const anchor = document.createElement('a'); const url = URL.createObjectURL(blob);
@@ -338,7 +379,6 @@ function downloadBlob(blob, name) {
 $('startBtn').onclick = () => { showScreen('cameraScreen'); startCamera(); };
 $('captureBtn').onclick = capture;
 $('switchCameraBtn').onclick = () => { facingMode = facingMode === 'user' ? 'environment' : 'user'; startCamera(); };
-$('timerBtn').onclick = () => { timerEnabled = !timerEnabled; $('timerBtn').textContent = timerEnabled ? '⏱ 3 segundos' : '⚡ Sem timer'; };
 $('openGalleryBtn').onclick = async () => { showScreen('galleryScreen'); await renderGallery(); };
 $('galleryFromCamera').onclick = async () => { stopCamera(); showScreen('galleryScreen'); await renderGallery(); };
 $('backToCameraBtn').onclick = () => { showScreen('cameraScreen'); startCamera(); };
@@ -353,8 +393,8 @@ $('shareBtn').onclick = async () => {
     catch (error) { if (error.name !== 'AbortError') setMessage('previewMessage', 'Compartilhamento não concluído.'); }
   } else setMessage('previewMessage', 'Seu aparelho não oferece compartilhamento direto. Use “Baixar foto” e envie pelo WhatsApp.');
 };
-document.querySelectorAll('[data-go-home]').forEach((button) => button.onclick = () => { stopCamera(); showScreen('home'); });
+document.querySelectorAll('[data-go-home]').forEach((button) => button.onclick = () => { if (galleryUnsubscribe) { galleryUnsubscribe(); galleryUnsubscribe = null; } stopCamera(); showScreen('home'); });
 document.querySelectorAll('[data-go-camera]').forEach((button) => button.onclick = () => { showScreen('cameraScreen'); startCamera(); });
-window.addEventListener('pagehide', stopCamera);
+window.addEventListener('pagehide', () => { stopCamera(); if (galleryUnsubscribe) galleryUnsubscribe(); });
 updateCount();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
