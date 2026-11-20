@@ -38,29 +38,33 @@ function makePhotoId() {
   return `${Date.now()}-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
 }
 
-// A sessão anônima permite que convidados enviem fotos sem criar uma conta.
-authReadyPromise = new Promise((resolve) => {
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      authUser = user;
-      firebaseReady = true;
-      resolve(user);
-      setMessage('cameraMessage', 'Tudo pronto! Enquadre seu sorriso e aperte o botão.');
-      return;
-    }
-    try {
-      const credential = await signInAnonymously(auth);
-      authUser = credential.user;
-      firebaseReady = true;
-      resolve(credential.user);
-    } catch (error) {
-      console.error('Falha no login anônimo Firebase:', error);
-      firebaseReady = false;
-      resolve(null);
-      setMessage('cameraMessage', 'Não foi possível conectar à galeria online. Você ainda pode tirar e baixar sua foto.');
-    }
-  });
+// Mantém a autenticação anônima ativa. A sessão pode ser renovada na hora do envio.
+onAuthStateChanged(auth, (user) => {
+  authUser = user || null;
+  firebaseReady = Boolean(user);
+  if (user) {
+    setMessage('cameraMessage', 'Tudo pronto! Enquadre seu sorriso e aperte o botão.');
+  }
 });
+
+async function ensureAuthenticated() {
+  if (auth.currentUser) {
+    authUser = auth.currentUser;
+    firebaseReady = true;
+    return auth.currentUser;
+  }
+  try {
+    const credential = await signInAnonymously(auth);
+    authUser = credential.user;
+    firebaseReady = true;
+    return credential.user;
+  } catch (error) {
+    authUser = null;
+    firebaseReady = false;
+    console.error('Falha no login anônimo Firebase:', error);
+    throw new Error('Não foi possível fazer login anônimo no Firebase. Confira o domínio autorizado e o método Anonymous no Authentication.');
+  }
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -230,8 +234,7 @@ async function capture() {
   }
 }
 async function uploadPhotoToCloud(blob) {
-  const user = await authReadyPromise;
-  if (!user || !firebaseReady) throw new Error('Não foi possível autenticar o convidado no Firebase. Confira Authentication > Sign-in method > Anonymous.');
+  await ensureAuthenticated();
   if (blob.size > MAX_PHOTO_BYTES) throw new Error('A foto ultrapassou o limite de 8 MB.');
 
   const photoId = makePhotoId();
