@@ -16,3 +16,10 @@ ANTES DE PUBLICAR:
 5. Teste envio e visualização em Android e iPhone.
 
 A câmera exige HTTPS. A galeria é pública: qualquer pessoa com o link pode ver e baixar as fotos. Não inclua fotos sem a autorização adequada dos participantes/responsáveis.
+
+AJUSTE DE CÂMERA E MOLDURA (v3):
+- A captura tenta aplicar o menor zoom disponível no aparelho.
+- A foto agora cobre toda a abertura transparente da moldura (821x913 px), em vez de deixar a parte inferior vazia.
+- A arte da moldura é renderizada em suas dimensões nativas.
+- O cache do service worker foi atualizado para buscar primeiro a versão publicada e usar o cache apenas offline.
+- Em aparelhos que não expõem controle de zoom ao navegador, o zoom óptico não pode ser forçado pela página.

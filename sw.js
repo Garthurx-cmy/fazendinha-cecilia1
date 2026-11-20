@@ -1,4 +1,4 @@
-const CACHE = 'cecilia-cabine-v3';
+const CACHE = 'cecilia-cabine-v4-wide-camera';
 const FILES = [
   './', './index.html', './styles.css', './app.js', './firebase-config.js',
   './manifest.webmanifest', './assets/moldura-fazendinha-cecilia.png', './assets/icon.svg'
@@ -14,17 +14,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return; // Firebase SDK e APIs sempre pela rede.
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    try {
-      const response = await fetch(event.request, { cache: 'no-store' });
-      if (response && response.ok) await cache.put(event.request, response.clone());
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    fetch(event.request).then((response) => {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+      }
       return response;
-    } catch (error) {
-      const cached = await cache.match(event.request);
-      if (cached) return cached;
-      throw error;
-    }
-  })());
+    }).catch(async () => {
+      const cached = await caches.match(event.request);
+      return cached || Response.error();
+    })
+  );
 });

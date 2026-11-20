@@ -11,6 +11,7 @@ import { firebaseConfig } from './firebase-config.js';
 const $ = (id) => document.getElementById(id);
 const screens = ['home','cameraScreen','previewScreen','galleryScreen'];
 const video = $('video');
+const videoBackdrop = $('videoBackdrop');
 const PHOTOS_PATH = 'events/cecilia-1-aninho/photos';
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 let stream = null;
@@ -105,11 +106,35 @@ async function startCamera() {
     return;
   }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facingMode }, width: { ideal: 1080 }, height: { ideal: 1920 } } });
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: facingMode },
+        width: { ideal: 1080 },
+        height: { ideal: 1920 }
+      }
+    });
+
+    // Usa o menor zoom disponibilizado pelo aparelho. No Safari/iPhone,
+    // quando o navegador não oferece controle de zoom, a composição abaixo
+    // ainda mostra o quadro inteiro da câmera, sem recortar a pessoa.
+    const cameraTrack = stream.getVideoTracks()[0];
+    try {
+      const capabilities = cameraTrack?.getCapabilities?.();
+      if (capabilities?.zoom && Number.isFinite(capabilities.zoom.min)) {
+        await cameraTrack.applyConstraints({ advanced: [{ zoom: capabilities.zoom.min }] });
+      }
+    } catch (zoomError) {
+      console.warn('Controle de zoom não disponível neste aparelho:', zoomError);
+    }
+
     video.srcObject = stream;
-    await video.play();
+    videoBackdrop.srcObject = stream;
+    video.classList.toggle('mirrored', facingMode === 'user');
+    videoBackdrop.classList.toggle('mirrored', facingMode === 'user');
+    await Promise.all([video.play(), videoBackdrop.play()]);
     $('cameraPlaceholder').hidden = true;
-    setMessage('cameraMessage', 'Tudo pronto! Enquadre seu sorriso e aperte o botão.');
+    setMessage('cameraMessage', 'Enquadramento aberto: você verá mais da pessoa e do ambiente.');
   } catch (error) {
     $('cameraPlaceholder').hidden = false;
     setMessage('cameraMessage', error.name === 'NotAllowedError' ? 'Permita o acesso à câmera nas configurações do navegador.' : 'Não foi possível abrir a câmera. Verifique se ela está sendo usada por outro aplicativo.');
@@ -118,32 +143,64 @@ async function startCamera() {
 function stopCamera() {
   if (stream) { stream.getTracks().forEach((track) => track.stop()); stream = null; }
   video.srcObject = null;
+  videoBackdrop.srcObject = null;
 }
 function makeComposite() {
-  // Mantém a composição exatamente na resolução nativa da moldura.
   const width = 941, height = 1672;
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d');
-  // A fotografia cobre toda a abertura transparente; a própria moldura
-  // esconde automaticamente a imagem atrás da madeira, dos animais e dos enfeites.
-  const x = 55, y = 240, photoWidth = 825, photoHeight = 910;
+
+  // Abertura transparente da moldura atual. A imagem inteira da câmera
+  // aparece centralizada; as laterais recebem o mesmo ambiente desfocado,
+  // evitando faixas pretas e reduzindo o efeito de zoom/corte.
+  const x = 58, y = 249, photoWidth = 817, photoHeight = 894;
   const vw = video.videoWidth || 720, vh = video.videoHeight || 1280;
-  const targetRatio = photoWidth / photoHeight, sourceRatio = vw / vh;
-  let sx = 0, sy = 0, sw = vw, sh = vh;
-  if (sourceRatio > targetRatio) { sw = vh * targetRatio; sx = (vw - sw) / 2; }
-  else { sh = vw / targetRatio; sy = (vh - sh) / 2; }
+  const sourceRatio = vw / vh;
+  const targetRatio = photoWidth / photoHeight;
+
   ctx.save();
-  if (facingMode === 'user') { ctx.translate(x + photoWidth, 0); ctx.scale(-1, 1); ctx.drawImage(video, sx, sy, sw, sh, 0, y, photoWidth, photoHeight); }
-  else { ctx.drawImage(video, sx, sy, sw, sh, x, y, photoWidth, photoHeight); }
+  ctx.beginPath();
+  ctx.rect(x, y, photoWidth, photoHeight);
+  ctx.clip();
+  if (facingMode === 'user') {
+    ctx.translate(x + photoWidth, 0);
+    ctx.scale(-1, 1);
+  }
+
+  // Fundo preenchido com a própria câmera, desfocado: não cria barras pretas.
+  let coverW = vw, coverH = vh, coverX = 0, coverY = 0;
+  if (sourceRatio > targetRatio) {
+    coverW = vh * targetRatio;
+    coverX = (vw - coverW) / 2;
+  } else {
+    coverH = vw / targetRatio;
+    coverY = (vh - coverH) / 2;
+  }
+  ctx.filter = 'blur(22px) brightness(0.82)';
+  ctx.drawImage(video, coverX, coverY, coverW, coverH, facingMode === 'user' ? 0 : x, y, photoWidth, photoHeight);
+
+  // Foto principal sem corte: mostra a pessoa e mais do ambiente ao redor.
+  const fitScale = Math.min(photoWidth / vw, photoHeight / vh);
+  const fitW = vw * fitScale;
+  const fitH = vh * fitScale;
+  const fitX = (photoWidth - fitW) / 2;
+  const fitY = y + (photoHeight - fitH) / 2;
+  ctx.filter = 'none';
+  ctx.drawImage(video, 0, 0, vw, vh, facingMode === 'user' ? fitX : x + fitX, fitY, fitW, fitH);
   ctx.restore();
+
   return new Promise((resolve, reject) => {
     const frame = new Image();
-    frame.onload = () => { ctx.drawImage(frame, 0, 0, width, height); canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Falha ao gerar JPEG')), 'image/jpeg', 0.90); };
+    frame.onload = () => {
+      ctx.drawImage(frame, 0, 0, width, height);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Falha ao gerar JPEG')), 'image/jpeg', 0.90);
+    };
     frame.onerror = () => reject(new Error('Não foi possível carregar a moldura'));
     frame.src = 'assets/moldura-fazendinha-cecilia.png';
   });
 }
+
 async function capture() {
   if (!stream) { setMessage('cameraMessage', 'Primeiro, permita o acesso à câmera.'); return; }
   $('captureBtn').disabled = true;
