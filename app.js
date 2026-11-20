@@ -151,7 +151,7 @@ function makeComposite() {
 
   // Abertura transparente da NOVA moldura (941 x 1672).
   // A imagem ocupa toda a abertura, sem fundo duplicado/desfocado ou faixas.
-  const opening = { x: 67, y: 260, width: 808, height: 715 };
+  const opening = { x: 67, y: 260, width: 808, height: 895 };
   const vw = video.videoWidth || 1080;
   const vh = video.videoHeight || 1920;
   const targetRatio = opening.width / opening.height;
