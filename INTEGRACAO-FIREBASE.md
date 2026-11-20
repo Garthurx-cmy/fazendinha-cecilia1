@@ -14,7 +14,7 @@
 - Firestore: `events/cecilia-1-aninho/photos/{documentId}`
 - Storage: `events/cecilia-1-aninho/photos/{photoId}.jpg`
 
-Cada documento contém `storagePath`, `downloadURL`, `createdAt`, `contentType` e `sizeBytes`.
+Cada documento usa o próprio `photoId` como ID e contém exatamente: `storagePath`, `downloadURL`, `createdAt`, `contentType`, `sizeBytes`, `photoId`, `userId` e `capturedAt`.
 
 ## Configuração
 O arquivo `firebase-config.js` contém a configuração pública do SDK Web do projeto. A configuração do SDK não é uma credencial administrativa. Nunca inclua chaves privadas, service accounts ou credenciais de servidor no repositório ou no navegador.
