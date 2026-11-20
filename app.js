@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
-  getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp
+  getFirestore, collection, doc, setDoc, getDocs, query, orderBy, serverTimestamp, Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import {
   getStorage, ref, uploadBytes, getDownloadURL
@@ -234,14 +234,14 @@ async function capture() {
   }
 }
 async function uploadPhotoToCloud(blob) {
-  await ensureAuthenticated();
+  const user = await ensureAuthenticated();
   if (blob.size > MAX_PHOTO_BYTES) throw new Error('A foto ultrapassou o limite de 8 MB.');
 
   const photoId = makePhotoId();
   const storagePath = `${PHOTOS_PATH}/${photoId}.jpg`;
   const fileRef = ref(storage, storagePath);
 
-  // Primeiro confirma o arquivo no Storage; depois grava o registro que alimenta a galeria.
+  // Primeiro envia o JPEG ao Storage.
   await uploadBytes(fileRef, blob, {
     contentType: 'image/jpeg',
     cacheControl: 'public,max-age=3600'
@@ -249,18 +249,22 @@ async function uploadPhotoToCloud(blob) {
   const downloadURL = await getDownloadURL(fileRef);
 
   try {
-    await addDoc(collection(db, PHOTOS_PATH), {
+    // Usa o próprio photoId como ID do documento, conforme a regra do Firestore.
+    await setDoc(doc(db, PHOTOS_PATH, photoId), {
       storagePath,
       downloadURL,
       createdAt: serverTimestamp(),
       contentType: 'image/jpeg',
-      sizeBytes: blob.size
+      sizeBytes: blob.size,
+      photoId,
+      userId: user.uid,
+      capturedAt: Timestamp.now()
     });
   } catch (error) {
     console.error('O arquivo foi enviado, mas o registro da galeria falhou:', error);
     const { deleteObject } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js');
     await deleteObject(fileRef).catch(() => {});
-    throw new Error('A foto chegou ao armazenamento, mas o Firebase não autorizou o registro na galeria. Publique as regras do Firestore e tente novamente.');
+    throw new Error('A foto chegou ao Storage, mas o registro no Firestore foi recusado. Confira se as regras publicadas correspondem aos oito campos enviados pelo aplicativo.');
   }
 }
 
