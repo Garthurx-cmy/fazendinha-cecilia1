@@ -1,4 +1,4 @@
-const CACHE = 'cecilia-cabine-v5-new-frame-auto-upload';
+const CACHE = 'cecilia-cabine-v6-instant-shared-gallery';
 const FILES = [
   './', './index.html', './styles.css', './app.js', './firebase-config.js',
   './manifest.webmanifest', './assets/moldura-cecilia-nova.png', './assets/icon.svg'
