@@ -22,7 +22,6 @@ let localSavedForCurrentPhoto = false;
 let cloudSavedForCurrentPhoto = false;
 let firebaseReady = false;
 let authUser = null;
-let authReadyPromise;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
