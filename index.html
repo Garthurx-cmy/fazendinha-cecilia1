@@ -19,7 +19,7 @@
     </header>
 
     <section id="home" class="screen home-screen">
-      <div class="hero-art"><img src="assets/moldura-fazendinha-cecilia.png" alt="Moldura ilustrada da Fazendinha da Cecília" /></div>
+      <div class="hero-art"><img src="assets/moldura-cecilia-nova.png" alt="Nova moldura A Tataraneta de Vovó — Fazendinha da Cecília" /></div>
       <div class="welcome-copy">
         <p class="eyebrow">SORRIA, A FESTA É SUA!</p>
         <h2>Vamos guardar<br />esse momento?</h2>
@@ -33,9 +33,8 @@
     <section id="cameraScreen" class="screen camera-screen" hidden>
       <div class="screen-heading"><button class="back-btn" data-go-home aria-label="Voltar">←</button><div><p class="eyebrow">CABINE DE FOTOS</p><h2>Prepare seu sorriso!</h2></div></div>
       <div class="camera-stage" id="cameraStage">
-        <video id="videoBackdrop" class="camera-backdrop" autoplay playsinline muted aria-hidden="true"></video>
         <video id="video" class="camera-live-photo" autoplay playsinline muted></video>
-        <img class="frame-overlay" src="assets/moldura-fazendinha-cecilia.png" alt="Moldura Fazendinha da Cecília" />
+        <img class="frame-overlay" src="assets/moldura-cecilia-nova.png" alt="Nova moldura A Tataraneta de Vovó" />
         <div id="countdown" class="countdown" hidden></div>
         <div id="cameraPlaceholder" class="camera-placeholder"><span>📷</span><strong>Sua câmera aparecerá aqui</strong><small>Autorize o acesso à câmera para começar.</small></div>
       </div>
@@ -55,7 +54,7 @@
         <button id="retakeBtn" class="secondary-btn">↻ Tirar outra</button>
         <button id="downloadBtn" class="primary-btn">⬇ Baixar foto</button>
         <button id="shareBtn" class="secondary-btn">↗ Compartilhar</button>
-        <button id="saveBtn" class="text-btn">Guardar na galeria</button>
+        <button id="saveBtn" class="text-btn" disabled>Salvando na galeria...</button>
       </div>
       <p id="previewMessage" class="message" role="status"></p>
     </section>
