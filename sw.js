@@ -1,7 +1,7 @@
-const CACHE = 'cecilia-cabine-v4-wide-camera';
+const CACHE = 'cecilia-cabine-v5-new-frame-auto-upload';
 const FILES = [
   './', './index.html', './styles.css', './app.js', './firebase-config.js',
-  './manifest.webmanifest', './assets/moldura-fazendinha-cecilia.png', './assets/icon.svg'
+  './manifest.webmanifest', './assets/moldura-cecilia-nova.png', './assets/icon.svg'
 ];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)));
