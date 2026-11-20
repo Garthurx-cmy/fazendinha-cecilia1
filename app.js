@@ -120,11 +120,14 @@ function stopCamera() {
   video.srcObject = null;
 }
 function makeComposite() {
-  const width = 928, height = 1660;
+  // Mantém a composição exatamente na resolução nativa da moldura.
+  const width = 941, height = 1672;
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d');
-  const x = 60, y = 248, photoWidth = 800, photoHeight = 705;
+  // A fotografia cobre toda a abertura transparente; a própria moldura
+  // esconde automaticamente a imagem atrás da madeira, dos animais e dos enfeites.
+  const x = 55, y = 240, photoWidth = 825, photoHeight = 910;
   const vw = video.videoWidth || 720, vh = video.videoHeight || 1280;
   const targetRatio = photoWidth / photoHeight, sourceRatio = vw / vh;
   let sx = 0, sy = 0, sw = vw, sh = vh;
