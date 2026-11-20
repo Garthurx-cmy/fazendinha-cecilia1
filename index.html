@@ -35,14 +35,13 @@
       <div class="camera-stage" id="cameraStage">
         <video id="video" class="camera-live-photo" autoplay playsinline muted></video>
         <img class="frame-overlay" src="assets/moldura-cecilia-nova.png" alt="Nova moldura A Tataraneta de Vovó" />
-        <div id="countdown" class="countdown" hidden></div>
         <div id="cameraPlaceholder" class="camera-placeholder"><span>📷</span><strong>Sua câmera aparecerá aqui</strong><small>Autorize o acesso à câmera para começar.</small></div>
       </div>
       <p id="cameraMessage" class="message" role="status">Use um local bem iluminado para uma foto bonita.</p>
       <div class="camera-controls">
         <button id="switchCameraBtn" class="secondary-btn" aria-label="Trocar câmera">↻ Trocar câmera</button>
         <button id="captureBtn" class="shutter-btn" aria-label="Tirar foto"><span></span></button>
-        <button id="timerBtn" class="secondary-btn">⏱ 3 segundos</button>
+        <span class="capture-hint">Captura instantânea</span>
       </div>
       <button id="galleryFromCamera" class="text-btn">Abrir galeria</button>
     </section>
