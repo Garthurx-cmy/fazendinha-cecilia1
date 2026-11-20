@@ -114,8 +114,9 @@ async function startCamera() {
       audio: false,
       video: {
         facingMode: { ideal: facingMode },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
+        width: { ideal: 1280 },
+        height: { ideal: 1424 },
+        aspectRatio: { ideal: 821 / 913 }
       }
     });
     const cameraTrack = stream.getVideoTracks()[0];
@@ -154,7 +155,7 @@ function makeComposite() {
 
   // Abertura transparente da NOVA moldura (941 x 1672).
   // A imagem ocupa toda a abertura, sem fundo duplicado/desfocado ou faixas.
-  const opening = { x: 67, y: 260, width: 808, height: 895 };
+  const opening = { x: 57, y: 245, width: 821, height: 913 };
   const vw = video.videoWidth || 1080;
   const vh = video.videoHeight || 1920;
   const targetRatio = opening.width / opening.height;
