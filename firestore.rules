@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /events/cecilia-1-aninho/photos/{photoId} {
+      // Galeria pública: qualquer pessoa pode visualizar os metadados das fotos.
+      allow read: if true;
+
+      // O envio de metadados exige sessão autenticada (a cabine usa login anônimo).
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'storagePath', 'downloadURL', 'createdAt', 'contentType', 'sizeBytes'
+        ])
+        && request.resource.data.keys().hasAll([
+          'storagePath', 'downloadURL', 'createdAt', 'contentType', 'sizeBytes'
+        ])
+        && request.resource.data.storagePath is string
+        && request.resource.data.storagePath.matches('events/cecilia-1-aninho/photos/[A-Za-z0-9-]+[.]jpg')
+        && request.resource.data.downloadURL is string
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.contentType == 'image/jpeg'
+        && request.resource.data.sizeBytes is int
+        && request.resource.data.sizeBytes > 0
+        && request.resource.data.sizeBytes <= 8 * 1024 * 1024;
+
+      // Convidados não podem alterar nem excluir registros da galeria.
+      allow update, delete: if false;
+    }
+  }
+}

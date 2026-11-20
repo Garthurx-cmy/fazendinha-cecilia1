@@ -1,0 +1,10 @@
+{
+  "name": "Fazendinha da Cecília - Cabine de Fotos",
+  "short_name": "Cabine Cecília",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff8e9",
+  "theme_color": "#477b3b",
+  "description": "Cabine de fotos do primeiro aninho da Cecília.",
+  "icons": [{"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

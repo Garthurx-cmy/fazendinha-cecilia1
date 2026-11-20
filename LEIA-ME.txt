@@ -1,0 +1,18 @@
+FAZENDINHA DA CECÍLIA — CABINE DE FOTOS
+
+Esta versão integra a cabine ao Firebase:
+- Login anônimo automático dos convidados.
+- Upload das fotos para Firebase Storage.
+- Metadados no Cloud Firestore.
+- Galeria coletiva com leitura pública.
+- Upload autenticado; alteração e exclusão bloqueadas.
+- Cópia local opcional no aparelho após o envio.
+
+ANTES DE PUBLICAR:
+1. Publique firestore.rules no Firestore > Regras.
+2. Publique storage.rules no Storage > Regras.
+3. Confirme que Authentication > Método de login > Anônimo está ativado.
+4. Depois de criar o domínio Netlify, inclua-o nos domínios autorizados do Firebase Authentication.
+5. Teste envio e visualização em Android e iPhone.
+
+A câmera exige HTTPS. A galeria é pública: qualquer pessoa com o link pode ver e baixar as fotos. Não inclua fotos sem a autorização adequada dos participantes/responsáveis.

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#477b3b" />
+  <meta name="description" content="Cabine de fotos da Fazendinha da Cecília." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Fazendinha da Cecília | Cabine de Fotos</title>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">🐮</div>
+      <div><p class="eyebrow">UM DIA MUITO ESPECIAL</p><h1>Fazendinha da Cecília</h1></div>
+      <span class="age-tag">1 aninho</span>
+    </header>
+
+    <section id="home" class="screen home-screen">
+      <div class="hero-art"><img src="assets/moldura-fazendinha-cecilia.png" alt="Moldura ilustrada da Fazendinha da Cecília" /></div>
+      <div class="welcome-copy">
+        <p class="eyebrow">SORRIA, A FESTA É SUA!</p>
+        <h2>Vamos guardar<br />esse momento?</h2>
+        <p>Entre na cabine, faça sua pose e leve uma lembrança desse dia especial.</p>
+        <button id="startBtn" class="primary-btn">📸 Entrar na cabine</button>
+        <button id="openGalleryBtn" class="text-btn">Ver galeria de fotos <span id="photoCount">(0)</span></button>
+      </div>
+      <p class="home-footer">🌻 Com carinho, Fazendinha da Cecília 🌻</p>
+    </section>
+
+    <section id="cameraScreen" class="screen camera-screen" hidden>
+      <div class="screen-heading"><button class="back-btn" data-go-home aria-label="Voltar">←</button><div><p class="eyebrow">CABINE DE FOTOS</p><h2>Prepare seu sorriso!</h2></div></div>
+      <div class="camera-stage" id="cameraStage">
+        <video id="video" autoplay playsinline muted></video>
+        <img class="frame-overlay" src="assets/moldura-fazendinha-cecilia.png" alt="Moldura Fazendinha da Cecília" />
+        <div id="countdown" class="countdown" hidden></div>
+        <div id="cameraPlaceholder" class="camera-placeholder"><span>📷</span><strong>Sua câmera aparecerá aqui</strong><small>Autorize o acesso à câmera para começar.</small></div>
+      </div>
+      <p id="cameraMessage" class="message" role="status">Use um local bem iluminado para uma foto bonita.</p>
+      <div class="camera-controls">
+        <button id="switchCameraBtn" class="secondary-btn" aria-label="Trocar câmera">↻ Trocar câmera</button>
+        <button id="captureBtn" class="shutter-btn" aria-label="Tirar foto"><span></span></button>
+        <button id="timerBtn" class="secondary-btn">⏱ 3 segundos</button>
+      </div>
+      <button id="galleryFromCamera" class="text-btn">Abrir galeria</button>
+    </section>
+
+    <section id="previewScreen" class="screen preview-screen" hidden>
+      <div class="screen-heading"><button class="back-btn" data-go-camera aria-label="Voltar">←</button><div><p class="eyebrow">SUA LEMBRANÇA</p><h2>Ficou linda!</h2></div></div>
+      <div class="preview-wrap"><img id="previewImage" alt="Sua foto com a moldura da Fazendinha da Cecília" /></div>
+      <div class="preview-actions">
+        <button id="retakeBtn" class="secondary-btn">↻ Tirar outra</button>
+        <button id="downloadBtn" class="primary-btn">⬇ Baixar foto</button>
+        <button id="shareBtn" class="secondary-btn">↗ Compartilhar</button>
+        <button id="saveBtn" class="text-btn">Guardar na galeria</button>
+      </div>
+      <p id="previewMessage" class="message" role="status"></p>
+    </section>
+
+    <section id="galleryScreen" class="screen gallery-screen" hidden>
+      <div class="screen-heading"><button class="back-btn" data-go-home aria-label="Voltar">←</button><div><p class="eyebrow">RECORDAÇÕES DA FESTA</p><h2>Galeria da Cecília</h2></div></div>
+      <p class="gallery-intro">As lembranças compartilhadas pelos convidados aparecem aqui.</p>
+      <p id="galleryMessage" class="message" role="status">Conectando à galeria da festa...</p>
+      <div id="galleryGrid" class="gallery-grid"></div>
+      <div id="emptyGallery" class="empty-gallery"><span>🌻</span><strong>A galeria está esperando por você!</strong><p>Tire a primeira foto para começar.</p></div>
+      <button id="backToCameraBtn" class="primary-btn">📸 Tirar uma foto</button>
+    </section>
+
+    <footer class="app-footer">Feito para celebrar o 1º aninho da Cecília 🐷</footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

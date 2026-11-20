@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /events/cecilia-1-aninho/photos/{fileName} {
+      // As imagens da galeria podem ser visualizadas publicamente.
+      allow read: if true;
+
+      // Permite somente novos JPEGs enviados por sessões autenticadas.
+      allow create: if request.auth != null
+        && resource == null
+        && fileName.matches('[A-Za-z0-9-]+[.]jpg')
+        && request.resource != null
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size > 0
+        && request.resource.size <= 8 * 1024 * 1024;
+
+      // Alteração e exclusão ficam bloqueadas para todos nesta versão.
+      allow update, delete: if false;
+    }
+  }
+}
